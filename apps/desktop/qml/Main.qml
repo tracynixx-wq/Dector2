@@ -171,7 +171,7 @@ ApplicationWindow {
                 }
                 Label {
                     Layout.fillWidth: true
-                    text: qsTr("Сессия хранится в памяти приложения. Защищённое сохранение входа будет подключено отдельно.")
+                    text: qsTr("На Windows сессия хранится в системном хранилище учётных данных. На других платформах пока требуется повторный вход после закрытия приложения.")
                     color: "#65738a"
                     wrapMode: Text.WordWrap
                     horizontalAlignment: Text.AlignHCenter
