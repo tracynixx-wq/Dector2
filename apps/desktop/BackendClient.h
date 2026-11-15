@@ -40,6 +40,7 @@ public:
                                    const QString &bio);
     Q_INVOKABLE void loadConversations();
     Q_INVOKABLE void createDirectConversation(const QString &username);
+    Q_INVOKABLE void createGroupConversation(const QString &title, const QString &usernamesCsv);
     Q_INVOKABLE void loadMessages(const QString &conversationId);
 
 signals:
