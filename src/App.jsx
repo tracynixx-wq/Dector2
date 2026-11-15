@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, isConfigured } from './lib/supabase'
 import { ensureDevice, encryptMessage, decryptMessage } from './lib/crypto'
 
-import { Search, Send, LogOut, MessageCircle, UserRound, Plus, ShieldCheck, Settings, SlidersHorizontal, X, LoaderCircle } from 'lucide-react'
+import { Search, Send, LogOut, MessageCircle, UserRound, Plus, ShieldCheck, Settings, SlidersHorizontal, X, LoaderCircle, ArrowLeft } from 'lucide-react'
 
 const initial = (s = '?') => s.trim().slice(0, 1).toUpperCase()
 const errText = e => e?.message || 'Не удалось выполнить действие.'
@@ -21,7 +21,7 @@ export default function App() {
   useEffect(() => {
     if (!supabase) { setBoot(false); return }
     let alive = true
-    supabase.auth.getSession().then(({ data }) => { if (alive) { setSession(data.session); setBoot(false) } })
+    supabase.auth.getSession().then(({ data }) => { if (alive) { setSession(data.session); setBoot(false) } }).catch(e => { if (alive) { setNotice(errText(e)); setBoot(false) } })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => { setSession(s); setBoot(false) })
     return () => { alive = false; sub.subscription.unsubscribe() }
   }, [])
@@ -178,23 +178,14 @@ export default function App() {
   async function createChat(person) {
     setBusy(true); setNotice('')
     try {
-      const ids = [session.user.id, person.id].sort()
-      const { data: found, error: findError } = await supabase.from('direct_conversation_pairs')
-        .select('conversation_id').eq('user_low', ids[0]).eq('user_high', ids[1]).maybeSingle()
-      if (findError) throw findError
-      let id = found?.conversation_id
-      if (!id) {
-        const { data: c, error } = await supabase.from('conversations').insert({ kind: 'direct', created_by: session.user.id }).select().single()
-        if (error) throw error
-        id = c.id
-        const { error: memberError } = await supabase.from('conversation_members').insert(ids.map(user_id => ({
-          conversation_id: id, user_id, role: user_id === session.user.id ? 'owner' : 'member'
-        })))
-        if (memberError) throw memberError
-        const { error: pairError } = await supabase.from('direct_conversation_pairs').insert({ user_low: ids[0], user_high: ids[1], conversation_id: id })
-        if (pairError) throw pairError
-      }
-      await loadChats(); setActive(id); setPeopleOpen(false); setQuery('')
+      // Серверная RPC создаёт диалог и пару участников атомарно.
+      const { data: id, error } = await supabase.rpc('create_direct_conversation', {
+        p_username: person.username
+      })
+      if (error) throw error
+      if (!id) throw new Error('Не удалось создать диалог.')
+      await loadChats()
+      setActive(id); setPeopleOpen(false); setQuery('')
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
@@ -223,26 +214,48 @@ export default function App() {
 
   async function saveProfile(e) {
     e.preventDefault(); setBusy(true); setNotice('')
+    const uploaded = { avatar: null, banner: null }
     try {
       const clean = username.trim().toLowerCase()
       if (!/^[a-zA-Z0-9_]{3,32}$/.test(clean)) throw new Error('Юзернейм: 3–32 символа, латиница, цифры и _.')
       let avatar_path = profile?.avatar_path || null
+      let banner_path = profile?.banner_path || null
+
       if (avatarFile) {
         if (!['image/jpeg','image/png','image/webp'].includes(avatarFile.type)) throw new Error('Поддерживаются JPG, PNG и WebP.')
         if (avatarFile.size > 3 * 1024 * 1024) throw new Error('Размер фотографии не должен превышать 3 МБ.')
         const extension = avatarFile.type.split('/')[1].replace('jpeg','jpg')
         const newPath = session.user.id + '/' + crypto.randomUUID() + '.' + extension
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(newPath, avatarFile, { contentType: avatarFile.type, upsert: false })
-        if (uploadError) throw uploadError
+        const { error } = await supabase.storage.from('avatars').upload(newPath, avatarFile, { contentType: avatarFile.type, upsert: false })
+        if (error) throw error
+        uploaded.avatar = newPath
         avatar_path = newPath
       }
+
+      if (bannerFile) {
+        if (bannerFile.type !== 'image/gif' || !bannerFile.name.toLowerCase().endsWith('.gif')) throw new Error('Баннер должен быть файлом GIF.')
+        if (bannerFile.size > 8 * 1024 * 1024) throw new Error('GIF-баннер не должен превышать 8 МБ.')
+        const newPath = session.user.id + '/' + crypto.randomUUID() + '.gif'
+        const { error } = await supabase.storage.from('profile-banners').upload(newPath, bannerFile, { contentType: 'image/gif', upsert: false })
+        if (error) throw error
+        uploaded.banner = newPath
+        banner_path = newPath
+      }
+
       const { data, error } = await supabase.from('profiles').update({
-        username: clean, display_name: displayName.trim(), bio, avatar_path, updated_at: new Date().toISOString()
+        username: clean, display_name: displayName.trim(), bio, avatar_path, banner_path,
+        updated_at: new Date().toISOString()
       }).eq('id', session.user.id).select().single()
       if (error) throw error
-      if (avatarFile && profile?.avatar_path) await supabase.storage.from('avatars').remove([profile.avatar_path])
-      setProfile(data); setAvatarFile(null); setProfileOpen(false); setNotice('Профиль сохранён.')
-    } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
+
+      if (uploaded.avatar && profile?.avatar_path) await supabase.storage.from('avatars').remove([profile.avatar_path])
+      if (uploaded.banner && profile?.banner_path) await supabase.storage.from('profile-banners').remove([profile.banner_path])
+      setProfile(data); setAvatarFile(null); setBannerFile(null); setProfileOpen(false); setNotice('Профиль сохранён.')
+    } catch(e) {
+      if (uploaded.avatar) await supabase.storage.from('avatars').remove([uploaded.avatar])
+      if (uploaded.banner) await supabase.storage.from('profile-banners').remove([uploaded.banner])
+      setNotice(errText(e))
+    } finally { setBusy(false) }
   }
 
   if (!isConfigured) return <main className="center"><div className="brand">D</div><h1>Dector</h1><p>Добавь URL и Publishable key проекта Dector2 в файл <code>.env.local</code> на основе <code>.env.example</code>.</p></main>
@@ -257,7 +270,7 @@ export default function App() {
       {!chats.length&&<div className="empty"><MessageCircle/><b>Пока нет чатов</b><button className="primary" onClick={()=>setPeopleOpen(true)}>Новый диалог</button></div>}
       <footer><div className="avatar">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt=""/> : initial(profile?.display_name||profile?.username||'U')}</div><div><b>{profile?.display_name||profile?.username}</b><small>@{profile?.username}</small></div><button className="icon" onClick={()=>setProfileOpen(true)}><Settings/></button></footer>
     </aside>
-    <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{selected.avatar_path ? <img src={avatarUrl(selected.avatar_path)} alt=""/> : initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
+    <section className="conversation">{selected?<><header className="convhead"><button type="button" className="back-to-chats" aria-label="Назад к чатам" onClick={()=>setActive(null)}><ArrowLeft/></button><div className="avatar">{selected.avatar_path ? <img src={avatarUrl(selected.avatar_path)} alt=""/> : initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
     {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{p.avatar_path ? <img src={avatarUrl(p.avatar_path)} alt=""/> : initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
     {customOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setCustomOpen(false)}><section className="modal custom-modal"><header><h3>Оформление</h3><button className="icon" onClick={()=>setCustomOpen(false)}><X/></button></header><label>Цвет акцента</label><div className="accent-grid">{accents.map(color=><button type="button" key={color} aria-label={'Цвет '+color} title={color} className={'swatch '+(appearance.accent===color?'selected':'')} style={{'--swatch':color}} onClick={()=>setAppearance(v=>({...v,accent:color}))}/>)}</div><div className="setting-row"><div><b>Компактный режим</b><small>Уменьшить отступы в списке чатов</small></div><button type="button" role="switch" aria-checked={appearance.compact} className={'switch '+(appearance.compact?'enabled':'')} onClick={()=>setAppearance(v=>({...v,compact:!v.compact}))}><span/></button></div><button type="button" className="textbtn" onClick={()=>setAppearance({accent:'#a9e66b',compact:false})}>Сбросить оформление</button></section></div>}
     {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profile-banner">{(bannerPreview || profile?.banner_path) && <img src={bannerPreview || bannerUrl(profile.banner_path)} alt="GIF-баннер профиля"/>}<span>Баннер профиля</span></div><label>GIF-баннер<input type="file" accept="image/gif,.gif" onChange={e=>setBannerFile(e.target.files?.[0] || null)}/><small>Только GIF · до 8 МБ</small></label><div className="profileicon">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt="Аватар профиля"/> : initial(displayName||username)}</div><label>Фото профиля<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setAvatarFile(e.target.files?.[0] || null)}/></label><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
