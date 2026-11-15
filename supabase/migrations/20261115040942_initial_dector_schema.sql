@@ -55,8 +55,9 @@ create table if not exists public.user_devices (
   user_id uuid not null references auth.users(id) on delete cascade,
   device_name text not null default '',
   identity_key_public text not null,
-  signed_prekey_public text not null,
-  signed_prekey_signature text not null,
+  -- Reserved for a future signed-prekey protocol; current ECDH device flow does not use these.
+  signed_prekey_public text,
+  signed_prekey_signature text,
   created_at timestamptz not null default now(),
   last_seen_at timestamptz,
   revoked_at timestamptz,
