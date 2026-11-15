@@ -254,3 +254,106 @@ input, textarea {
   .back-to-chats { display: flex; }
   .convhead { gap: 9px; padding: 0 12px; }
 }
+
+
+/* iPhone / iOS web app support */
+html {
+  min-height: 100%;
+  min-height: 100dvh;
+  background: #101114;
+  overscroll-behavior: none;
+}
+body, #root {
+  min-height: 100%;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
+}
+button, .chatitem, .person, .rail button, .icon, .send {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+input, textarea, select {
+  font-size: 16px;
+}
+@supports (padding: env(safe-area-inset-top)) {
+  .layout {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .center {
+    min-height: 100dvh;
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .overlay {
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 100dvh;
+  }
+  .rail { display: none; }
+  .chats {
+    min-width: 0;
+    width: 100%;
+    border-right: 0;
+  }
+  .chats > header {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  .chatitem {
+    min-height: 64px;
+    margin-left: 8px;
+    margin-right: 8px;
+  }
+  .layout:has(.chatitem.active) .conversation {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+    z-index: 3;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .layout:has(.chatitem.active) .chats { display: none; }
+  .convhead {
+    min-height: 64px;
+    height: auto;
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .messages {
+    padding: 16px max(12px, env(safe-area-inset-right)) 16px max(12px, env(safe-area-inset-left));
+    -webkit-overflow-scrolling: touch;
+  }
+  .bubble { max-width: 88%; }
+  .composer {
+    padding: 10px max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .composer input { min-width: 0; min-height: 46px; }
+  .send { min-width: 46px; min-height: 46px; }
+  .modal {
+    width: 100%;
+    max-width: 480px;
+    max-height: min(88dvh, 760px);
+    border-radius: 18px;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .toast {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: max-content;
+  }
+}
+@media (max-width: 380px) {
+  .convhead small { font-size: 10px; }
+  .modal { padding: 16px; }
+}
