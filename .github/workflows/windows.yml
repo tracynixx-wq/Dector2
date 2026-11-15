@@ -25,7 +25,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Package Windows installer (artifact)
         if: "!startsWith(github.ref, 'refs/tags/')"
-        run: npm run dist
+        run: npm run dist -- --publish never
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
