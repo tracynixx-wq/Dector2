@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, isConfigured } from './lib/supabase'
 import { ensureDevice, encryptMessage, decryptMessage } from './lib/crypto'
 
-import { Search, Send, LogOut, MessageCircle, UserRound, Plus, ShieldCheck, Settings, X, LoaderCircle } from 'lucide-react'
+import { Search, Send, LogOut, MessageCircle, UserRound, Plus, ShieldCheck, Settings, SlidersHorizontal, X, LoaderCircle } from 'lucide-react'
 
 const initial = (s = '?') => s.trim().slice(0, 1).toUpperCase()
 const errText = e => e?.message || 'Не удалось выполнить действие.'
@@ -13,7 +13,9 @@ export default function App() {
   const [profile, setProfile] = useState(null), [username, setUsername] = useState(''), [displayName, setDisplayName] = useState(''), [bio, setBio] = useState(''), [avatarFile, setAvatarFile] = useState(null)
   const [device, setDevice] = useState(null), [chats, setChats] = useState([]), [active, setActive] = useState(null), [messages, setMessages] = useState([])
   const [query, setQuery] = useState(''), [people, setPeople] = useState([]), [draft, setDraft] = useState('')
-  const [peopleOpen, setPeopleOpen] = useState(false), [profileOpen, setProfileOpen] = useState(false)
+  const [peopleOpen, setPeopleOpen] = useState(false), [profileOpen, setProfileOpen] = useState(false), [customOpen, setCustomOpen] = useState(false)
+  const [appearance, setAppearance] = useState(() => { try { return { accent: localStorage.getItem('dector-accent') || '#a9e66b', compact: localStorage.getItem('dector-compact') === 'true' } } catch { return { accent: '#a9e66b', compact: false } } })
+  const accents = ['#a9e66b','#78b8ff','#c49bff','#ff91b5','#ffb86b','#55d6c2','#f2d45c']
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState('')
 
   useEffect(() => {
@@ -207,6 +209,8 @@ export default function App() {
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
+  useEffect(() => { try { localStorage.setItem('dector-accent', appearance.accent); localStorage.setItem('dector-compact', String(appearance.compact)) } catch {} }, [appearance])
+
   const avatarUrl = path => path ? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl : ''
 
   async function saveProfile(e) {
@@ -238,8 +242,8 @@ export default function App() {
   if (!session) return <main className="center"><form className="auth card" onSubmit={authSubmit}><div className="brand">D</div><h1>Dector</h1><p className="muted">Приватное общение</p><label>Почта<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Пароль<input type="password" minLength="8" required value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="primary" disabled={busy}>{busy?'Подождите…':mode==='login'?'Войти':'Зарегистрироваться'}</button><button type="button" className="textbtn" onClick={()=>setMode(mode==='login'?'register':'login')}>{mode==='login'?'Создать аккаунт':'Уже есть аккаунт? Войти'}</button>{notice&&<p className="notice">{notice}</p>}</form></main>
 
   const selected = chats.find(c => c.id === active)
-  return <main className="layout">
-    <nav className="rail"><div className="brand mini">D</div><button className="on" title="Чаты"><MessageCircle/></button><button title="Найти людей" onClick={()=>setPeopleOpen(true)}><Search/></button><button title="Профиль" onClick={()=>setProfileOpen(true)}><UserRound/></button><button className="logout" title="Выйти" onClick={()=>supabase.auth.signOut()}><LogOut/></button></nav>
+  return <main className={'layout '+(appearance.compact?'compact':'')} style={{'--accent':appearance.accent}}>
+    <nav className="rail"><div className="brand mini">D</div><button className="on" title="Чаты"><MessageCircle/></button><button title="Найти людей" onClick={()=>setPeopleOpen(true)}><Search/></button><button title="Профиль" onClick={()=>setProfileOpen(true)}><UserRound/></button><button title="Оформление" onClick={()=>setCustomOpen(true)}><SlidersHorizontal/></button><button className="logout" title="Выйти" onClick={()=>supabase.auth.signOut()}><LogOut/></button></nav>
     <aside className="chats"><header><div><h2>Сообщения</h2><small>Ваши диалоги</small></div><button className="icon" onClick={()=>setPeopleOpen(true)}><Plus/></button></header>
       {chats.map(c=><button key={c.id} className={'chatitem '+(active===c.id?'active':'')} onClick={()=>setActive(c.id)}><div className="avatar">{c.avatar_path ? <img src={avatarUrl(c.avatar_path)} alt=""/> : initial(c.title||'D')}</div><div><b>{c.title||'Личный чат'}</b><small>Открыть переписку</small></div></button>)}
       {!chats.length&&<div className="empty"><MessageCircle/><b>Пока нет чатов</b><button className="primary" onClick={()=>setPeopleOpen(true)}>Новый диалог</button></div>}
@@ -247,6 +251,7 @@ export default function App() {
     </aside>
     <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{selected.avatar_path ? <img src={avatarUrl(selected.avatar_path)} alt=""/> : initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
     {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{p.avatar_path ? <img src={avatarUrl(p.avatar_path)} alt=""/> : initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
+    {customOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setCustomOpen(false)}><section className="modal custom-modal"><header><h3>Оформление</h3><button className="icon" onClick={()=>setCustomOpen(false)}><X/></button></header><label>Цвет акцента</label><div className="accent-grid">{accents.map(color=><button type="button" key={color} aria-label={'Цвет '+color} title={color} className={'swatch '+(appearance.accent===color?'selected':'')} style={{'--swatch':color}} onClick={()=>setAppearance(v=>({...v,accent:color}))}/>)}</div><div className="setting-row"><div><b>Компактный режим</b><small>Уменьшить отступы в списке чатов</small></div><button type="button" role="switch" aria-checked={appearance.compact} className={'switch '+(appearance.compact?'enabled':'')} onClick={()=>setAppearance(v=>({...v,compact:!v.compact}))}><span/></button></div><button type="button" className="textbtn" onClick={()=>setAppearance({accent:'#a9e66b',compact:false})}>Сбросить оформление</button></section></div>}
     {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profileicon">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt="Аватар профиля"/> : initial(displayName||username)}</div><label>Фото профиля<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setAvatarFile(e.target.files?.[0] || null)}/></label><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
     {notice&&<button className="toast" onClick={()=>setNotice('')}>{notice}<X size={14}/></button>}
   </main>
