@@ -1,6 +1,8 @@
+#include <cstdlib>
+
+#include <QCoreApplication>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <QUrl>
 
 int main(int argc, char *argv[])
 {
@@ -10,14 +12,13 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationVersion(QStringLiteral("0.1.0"));
 
     QQmlApplicationEngine engine;
-    const QUrl mainUrl(QStringLiteral("qrc:/qt/qml/Dector/apps/desktop/qml/Main.qml"));
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
         &app,
         [] { QCoreApplication::exit(EXIT_FAILURE); },
         Qt::QueuedConnection);
-    engine.load(mainUrl);
+    engine.loadFromModule(QStringLiteral("Dector"), QStringLiteral("Main"));
 
     return app.exec();
 }
