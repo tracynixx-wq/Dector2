@@ -193,12 +193,17 @@ void BackendClient::refreshAccessToken()
     request("POST", QStringLiteral("/auth/v1/token?grant_type=refresh_token"),
             {{QStringLiteral("refresh_token"), m_refreshToken}},
             false,
-            [this](int code, const QByteArray &data, const QString &) {
+            [this](int code, const QByteArray &data, const QString &error) {
         if (code >= 200 && code < 300) {
             acceptAuthResponse(data);
-        } else {
+        } else if (code == 400 || code == 401) {
             signOut();
             setStatus(QStringLiteral("Сессия истекла. Войди снова."));
+        } else {
+            setStatus(error.isEmpty()
+                ? QStringLiteral("Нет соединения. Сохранённая сессия не удалена; повторим подключение.")
+                : QStringLiteral("Не удалось обновить сессию: %1. Повторим подключение.").arg(error));
+            m_refreshTimer.start(30000);
         }
     });
 }
