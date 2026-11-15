@@ -60,6 +60,9 @@ private:
     void acceptAuthResponse(const QByteArray &data);
     void refreshAccessToken();
     void scheduleTokenRefresh(int expiresInSeconds);
+    QString readStoredRefreshToken() const;
+    void storeRefreshToken(const QString &token) const;
+    void clearStoredRefreshToken() const;
     static QString encoded(const QString &value);
 
     QNetworkAccessManager m_network;
