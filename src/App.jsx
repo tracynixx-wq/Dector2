@@ -80,10 +80,19 @@ export default function App() {
     const { data, error } = await supabase.from('messages').select('id,sender_id,ciphertext,nonce,encryption_version,content_type,created_at')
       .eq('conversation_id', active).is('deleted_at', null).order('created_at', { ascending: true }).limit(150)
     if (error) throw error
-    const decoded = await Promise.all((data || []).map(async m => {
+    const rows = data || []
+    if (!rows.length) { setMessages([]); return }
+    const messageIds = rows.map(message => message.id)
+    const { data: envelopes, error: envelopeError } = await supabase.from('message_key_envelopes')
+      .select('message_id,encrypted_key')
+      .in('message_id', messageIds)
+      .eq('recipient_device_id', device.deviceId)
+    if (envelopeError) throw envelopeError
+    const envelopeByMessage = new Map((envelopes || []).map(envelope => [envelope.message_id, envelope]))
+    const decoded = await Promise.all(rows.map(async m => {
       try {
         if (m.encryption_version !== 1) return { ...m, text: '[Неподдерживаемая версия шифрования]' }
-        return { ...m, text: await decryptMessage(supabase, m, device.deviceId, device.pair.privateKey) }
+        return { ...m, text: await decryptMessage(supabase, m, device.deviceId, device.pair.privateKey, envelopeByMessage.get(m.id) || null) }
       } catch { return { ...m, text: '[Не удалось расшифровать на этом устройстве]' } }
     }))
     setMessages(decoded)
@@ -116,13 +125,19 @@ export default function App() {
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
-  async function searchPeople(value) {
-    setQuery(value)
-    if (value.trim().length < 2) { setPeople([]); return }
-    const { data, error } = await supabase.from('profiles').select('id,username,display_name,bio,avatar_path')
-      .ilike('username', '%' + value.trim() + '%').neq('id', session.user.id).limit(15)
-    if (error) setNotice(errText(error)); else setPeople(data || [])
-  }
+  useEffect(() => {
+    const term = query.trim()
+    if (!peopleOpen || term.length < 2 || !session?.user) { setPeople([]); return }
+    let alive = true
+    const timer = setTimeout(async () => {
+      const { data, error } = await supabase.from('profiles').select('id,username,display_name,bio,avatar_path')
+        .ilike('username', '%' + term + '%').neq('id', session.user.id).limit(15)
+      if (!alive) return
+      if (error) setNotice(errText(error))
+      else setPeople(data || [])
+    }, 280)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [query, peopleOpen, session])
 
   async function createChat(person) {
     setBusy(true); setNotice('')
@@ -197,7 +212,7 @@ export default function App() {
       <footer><div className="avatar">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt=""/> : initial(profile?.display_name||profile?.username||'U')}</div><div><b>{profile?.display_name||profile?.username}</b><small>@{profile?.username}</small></div><button className="icon" onClick={()=>setProfileOpen(true)}><Settings/></button></footer>
     </aside>
     <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{selected.avatar_path ? <img src={avatarUrl(selected.avatar_path)} alt=""/> : initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
-    {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>searchPeople(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{p.avatar_path ? <img src={avatarUrl(p.avatar_path)} alt=""/> : initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
+    {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{p.avatar_path ? <img src={avatarUrl(p.avatar_path)} alt=""/> : initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
     {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profileicon">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt="Аватар профиля"/> : initial(displayName||username)}</div><label>Фото профиля<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setAvatarFile(e.target.files?.[0] || null)}/></label><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
     {notice&&<button className="toast" onClick={()=>setNotice('')}>{notice}<X size={14}/></button>}
   </main>
