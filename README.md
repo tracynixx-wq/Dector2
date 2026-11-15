@@ -17,7 +17,7 @@ Dector is an independent cross-platform messenger. Its product behavior is infor
 - Supabase email sign-up and password sign-in.
 - In-memory access/refresh token handling with refresh while the app remains open.
 - Profile loading and editing.
-- Direct-chat creation by username and conversation list/history loading.
+- Direct-chat creation by username, group creation by usernames and conversation list/history loading.
 - Message payloads are displayed as encrypted placeholders; the UI intentionally does not send plaintext.
 
 ### Not yet implemented
