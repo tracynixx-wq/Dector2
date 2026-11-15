@@ -183,7 +183,9 @@ export default function App() {
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
-  const avatarUrl = path => path ? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl : ''\n\n  async function saveProfile(e) {
+  const avatarUrl = path => path ? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl : ''
+
+  async function saveProfile(e) {
     e.preventDefault(); setBusy(true); setNotice('')
     try {
       const clean = username.trim().toLowerCase()
