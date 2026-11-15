@@ -351,6 +351,39 @@ void BackendClient::createDirectConversation(const QString &username)
     });
 }
 
+void BackendClient::createGroupConversation(const QString &title, const QString &usernamesCsv)
+{
+    if (!authenticated())
+        return;
+    const QStringList usernames = usernamesCsv.split(',', Qt::SkipEmptyParts);
+    QJsonArray members;
+    for (const QString &name : usernames) {
+        const QString trimmed = name.trimmed();
+        if (!trimmed.isEmpty())
+            members.append(trimmed);
+    }
+    if (title.trimmed().isEmpty() || members.isEmpty()) {
+        setStatus(QStringLiteral("Укажи название группы и хотя бы одного участника"));
+        return;
+    }
+    setBusy(true);
+    request("POST", QStringLiteral("/rest/v1/rpc/create_group_conversation"),
+            {{QStringLiteral("p_title"), title.trimmed()},
+             {QStringLiteral("p_usernames"), members}},
+            true,
+            [this](int code, const QByteArray &data, const QString &error) {
+        setBusy(false);
+        if (code >= 200 && code < 300) {
+            setStatus(QStringLiteral("Группа создана"));
+            loadConversations();
+        } else {
+            const QJsonObject json = QJsonDocument::fromJson(data).object();
+            const QString message = json.value(QStringLiteral("message")).toString();
+            setStatus(message.isEmpty() ? (error.isEmpty() ? QStringLiteral("Не удалось создать группу (%1)").arg(code) : error) : message);
+        }
+    });
+}
+
 void BackendClient::loadMessages(const QString &conversationId)
 {
     if (!authenticated() || conversationId.isEmpty())
