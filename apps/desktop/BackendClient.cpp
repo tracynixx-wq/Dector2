@@ -165,6 +165,30 @@ void BackendClient::signIn(const QString &email, const QString &password)
     });
 }
 
+void BackendClient::sendPasswordReset(const QString &email)
+{
+    if (email.trimmed().isEmpty()) {
+        setStatus(QStringLiteral("Сначала введи электронную почту"));
+        return;
+    }
+    setBusy(true);
+    request("POST", QStringLiteral("/auth/v1/recover"),
+            {{QStringLiteral("email"), email.trimmed()}},
+            false,
+            [this](int code, const QByteArray &data, const QString &error) {
+        setBusy(false);
+        if (code >= 200 && code < 300) {
+            setStatus(QStringLiteral("Если адрес зарегистрирован, на него придёт письмо для восстановления доступа"));
+        } else {
+            const QJsonObject json = QJsonDocument::fromJson(data).object();
+            QString message = json.value(QStringLiteral("msg")).toString();
+            if (message.isEmpty())
+                message = json.value(QStringLiteral("message")).toString();
+            setStatus(message.isEmpty() ? (error.isEmpty() ? QStringLiteral("Не удалось отправить письмо (%1)").arg(code) : error) : message);
+        }
+    });
+}
+
 void BackendClient::signOut()
 {
     m_refreshTimer.stop();
