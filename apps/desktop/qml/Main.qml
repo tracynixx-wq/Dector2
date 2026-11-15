@@ -16,6 +16,20 @@ ApplicationWindow {
     property string selectedConversationTitle: qsTr("Выбери чат")
     property var currentMessages: []
 
+    Timer {
+        interval: 15000
+        repeat: true
+        running: backend.authenticated
+        onTriggered: backend.loadConversations()
+    }
+
+    Timer {
+        interval: 8000
+        repeat: true
+        running: backend.authenticated && window.selectedConversationId !== ""
+        onTriggered: backend.loadMessages(window.selectedConversationId)
+    }
+
     Connections {
         target: backend
         function onMessagesLoaded(conversationId, messages) {
@@ -290,7 +304,7 @@ ApplicationWindow {
                                         spacing: 3
                                         Label {
                                             Layout.fillWidth: true
-                                            text: modelData.title || (modelData.kind === "direct" ? qsTr("Личный чат") : qsTr("Группа"))
+                                            text: modelData.title || modelData.peerName || (modelData.kind === "direct" ? qsTr("Личный чат") : qsTr("Группа"))
                                             color: "#eef2fb"
                                             font.pixelSize: 13
                                             elide: Text.ElideRight
@@ -302,7 +316,7 @@ ApplicationWindow {
                                     anchors.fill: parent
                                     onClicked: {
                                         window.selectedConversationId = modelData.id
-                                        window.selectedConversationTitle = modelData.title || qsTr("Личный чат")
+                                        window.selectedConversationTitle = modelData.title || modelData.peerName || qsTr("Личный чат")
                                         window.currentMessages = []
                                         backend.loadMessages(modelData.id)
                                     }
