@@ -26,6 +26,10 @@ target_link_libraries(dector-desktop PRIVATE
     Qt6::Network
 )
 
+if(WIN32)
+    target_link_libraries(dector-desktop PRIVATE Advapi32)
+endif()
+
 target_compile_definitions(dector-desktop PRIVATE
     DECTOR_VERSION="${PROJECT_VERSION}"
 )
