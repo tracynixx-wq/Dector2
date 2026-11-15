@@ -132,11 +132,15 @@ export async function encryptMessage(supabase, text, conversationId, senderId, d
   return message
 }
 
-export async function decryptMessage(supabase, message, deviceId, privateKey) {
-  const { data: envelope, error } = await supabase.from('message_key_envelopes')
-    .select('encrypted_key').eq('message_id', message.id)
-    .eq('recipient_device_id', deviceId).maybeSingle()
-  if (error) throw error
+export async function decryptMessage(supabase, message, deviceId, privateKey, providedEnvelope) {
+  let envelope = providedEnvelope
+  if (providedEnvelope === undefined) {
+    const { data, error } = await supabase.from('message_key_envelopes')
+      .select('encrypted_key').eq('message_id', message.id)
+      .eq('recipient_device_id', deviceId).maybeSingle()
+    if (error) throw error
+    envelope = data
+  }
   if (!envelope) return '[Это сообщение отправлено с другого устройства]'
   const packet = JSON.parse(envelope.encrypted_key)
   const ephemeralPublic = await crypto.subtle.importKey(
