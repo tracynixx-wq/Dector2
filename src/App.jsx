@@ -37,14 +37,14 @@ export default function App() {
       if (memberError) throw memberError
       const userIds = [...new Set((members || []).map(m => m.user_id))]
       const { data: people, error: peopleError } = userIds.length
-        ? await supabase.from('profiles').select('id,username,display_name').in('id', userIds)
+        ? await supabase.from('profiles').select('id,username,display_name,avatar_path').in('id', userIds)
         : { data: [], error: null }
       if (peopleError) throw peopleError
       rows = rows.map(c => {
         if (c.kind === 'group' || c.title) return c
         const other = (members || []).find(m => m.conversation_id === c.id)
         const person = (people || []).find(p => p.id === other?.user_id)
-        return { ...c, title: person?.display_name || person?.username || 'Личный чат' }
+        return { ...c, title: person?.display_name || person?.username || 'Личный чат', avatar_path: person?.avatar_path || null }
       })
     }
     rows.sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at))
@@ -118,7 +118,7 @@ export default function App() {
   async function searchPeople(value) {
     setQuery(value)
     if (value.trim().length < 2) { setPeople([]); return }
-    const { data, error } = await supabase.from('profiles').select('id,username,display_name,bio')
+    const { data, error } = await supabase.from('profiles').select('id,username,display_name,bio,avatar_path')
       .ilike('username', '%' + value.trim() + '%').neq('id', session.user.id).limit(15)
     if (error) setNotice(errText(error)); else setPeople(data || [])
   }
@@ -189,12 +189,12 @@ export default function App() {
   return <main className="layout">
     <nav className="rail"><div className="brand mini">D</div><button className="on" title="Чаты"><MessageCircle/></button><button title="Найти людей" onClick={()=>setPeopleOpen(true)}><Search/></button><button title="Профиль" onClick={()=>setProfileOpen(true)}><UserRound/></button><button className="logout" title="Выйти" onClick={()=>supabase.auth.signOut()}><LogOut/></button></nav>
     <aside className="chats"><header><div><h2>Сообщения</h2><small>Ваши диалоги</small></div><button className="icon" onClick={()=>setPeopleOpen(true)}><Plus/></button></header>
-      {chats.map(c=><button key={c.id} className={'chatitem '+(active===c.id?'active':'')} onClick={()=>setActive(c.id)}><div className="avatar">{initial(c.title||'D')}</div><div><b>{c.title||'Личный чат'}</b><small>Открыть переписку</small></div></button>)}
+      {chats.map(c=><button key={c.id} className={'chatitem '+(active===c.id?'active':'')} onClick={()=>setActive(c.id)}><div className="avatar">{c.avatar_path ? <img src={avatarUrl(c.avatar_path)} alt=""/> : initial(c.title||'D')}</div><div><b>{c.title||'Личный чат'}</b><small>Открыть переписку</small></div></button>)}
       {!chats.length&&<div className="empty"><MessageCircle/><b>Пока нет чатов</b><button className="primary" onClick={()=>setPeopleOpen(true)}>Новый диалог</button></div>}
-      <footer><div className="avatar">{initial(profile?.display_name||profile?.username||'U')}</div><div><b>{profile?.display_name||profile?.username}</b><small>@{profile?.username}</small></div><button className="icon" onClick={()=>setProfileOpen(true)}><Settings/></button></footer>
+      <footer><div className="avatar">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt=""/> : initial(profile?.display_name||profile?.username||'U')}</div><div><b>{profile?.display_name||profile?.username}</b><small>@{profile?.username}</small></div><button className="icon" onClick={()=>setProfileOpen(true)}><Settings/></button></footer>
     </aside>
-    <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
-    {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>searchPeople(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
+    <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{selected.avatar_path ? <img src={avatarUrl(selected.avatar_path)} alt=""/> : initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
+    {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>searchPeople(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{p.avatar_path ? <img src={avatarUrl(p.avatar_path)} alt=""/> : initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
     {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profileicon">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt="Аватар профиля"/> : initial(displayName||username)}</div><label>Фото профиля<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setAvatarFile(e.target.files?.[0] || null)}/></label><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
     {notice&&<button className="toast" onClick={()=>setNotice('')}>{notice}<X size={14}/></button>}
   </main>
