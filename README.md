@@ -14,8 +14,8 @@ Dector is a React + Vite messaging client backed by Supabase, packaged for Windo
 ## Implemented
 
 - Supabase email/password registration and login with persistent sessions and automatic token refresh.
-- Editable user profiles and username search.
-- Direct conversations, encrypted message payloads and realtime updates.
+- Editable user profiles, public avatar uploads (JPG/PNG/WebP up to 3 MB), and username search.
+- Direct conversations, encrypted message payloads and realtime updates. The required realtime publication and avatar Storage policies are documented in `supabase/setup.sql` and have been applied to Dector2.
 - Per-device P-256 ECDH keys stored in IndexedDB; random AES-256-GCM key per message; encrypted message keys for each active participant device.
 - Windows Electron wrapper with NSIS installer and GitHub-release update checks. Downloaded updates prompt to restart only Dector, not Windows.
 
