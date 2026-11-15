@@ -1,0 +1,71 @@
+-- Atomic group creation. The caller becomes owner; usernames are resolved
+-- server-side and all membership rows are inserted in the same transaction.
+create or replace function public.create_group_conversation(
+  p_title text,
+  p_usernames text[]
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_names text[];
+  v_targets uuid[];
+  v_conversation uuid;
+  v_target uuid;
+begin
+  if v_user is null then
+    raise exception 'Authentication required' using errcode = '28000';
+  end if;
+  if length(trim(coalesce(p_title, ''))) < 1 or length(trim(p_title)) > 80 then
+    raise exception 'Group title must be between 1 and 80 characters' using errcode = '22023';
+  end if;
+
+  select array_agg(distinct lower(trim(x)))
+  into v_names
+  from unnest(coalesce(p_usernames, array[]::text[])) as x
+  where trim(x) <> '';
+
+  if coalesce(cardinality(v_names), 0) < 1 or cardinality(v_names) > 100 then
+    raise exception 'Add between 1 and 100 members' using errcode = '22023';
+  end if;
+
+  select array_agg(p.id order by p.id)
+  into v_targets
+  from public.profiles p
+  where lower(p.username) = any(v_names)
+    and p.id <> v_user;
+
+  if coalesce(cardinality(v_targets), 0) <> (
+    select count(*)::int
+    from unnest(v_names) as n
+    join public.profiles p on lower(p.username) = n
+    where p.id <> v_user
+  ) then
+    raise exception 'One or more usernames were not found' using errcode = 'P0002';
+  end if;
+
+  if coalesce(cardinality(v_targets), 0) < 1 then
+    raise exception 'A group needs at least one other member' using errcode = '22023';
+  end if;
+
+  insert into public.conversations(kind, title, created_by)
+  values ('group', trim(p_title), v_user)
+  returning id into v_conversation;
+
+  insert into public.conversation_members(conversation_id, user_id, role)
+  values (v_conversation, v_user, 'owner');
+
+  foreach v_target in array v_targets loop
+    insert into public.conversation_members(conversation_id, user_id, role)
+    values (v_conversation, v_target, 'member');
+  end loop;
+
+  return v_conversation;
+end;
+$$;
+
+revoke all on function public.create_group_conversation(text, text[]) from public, anon;
+grant execute on function public.create_group_conversation(text, text[]) to authenticated;
