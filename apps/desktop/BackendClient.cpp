@@ -8,6 +8,7 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <QStringList>
 #include <string>
 
 #ifdef Q_OS_WIN
