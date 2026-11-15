@@ -32,6 +32,7 @@ public:
     Q_INVOKABLE void signUp(const QString &email, const QString &password,
                             const QString &displayName);
     Q_INVOKABLE void signIn(const QString &email, const QString &password);
+    Q_INVOKABLE void sendPasswordReset(const QString &email);
     Q_INVOKABLE void signOut();
     Q_INVOKABLE void refreshProfile();
     Q_INVOKABLE void updateProfile(const QString &displayName,
