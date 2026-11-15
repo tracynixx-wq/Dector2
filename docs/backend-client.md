@@ -13,6 +13,7 @@ The desktop application talks only to the dedicated Dector2 Supabase project. Th
 - `GET/PATCH /rest/v1/profiles`: read and update the current profile.
 - `GET /rest/v1/conversation_members`: list conversations for the current user.
 - `POST /rest/v1/rpc/create_direct_conversation`: atomically create or return the direct chat for a username.
+- `POST /rest/v1/rpc/create_group_conversation`: atomically create a group and add the owner plus resolved usernames.
 - `GET /rest/v1/messages`: load the latest 100 encrypted message records.
 
 ## Session storage
