@@ -1,73 +1,30 @@
 # Dector
 
-Dector is an independent cross-platform messenger. Its product behavior is informed by the existing Message project and Telegram interaction patterns, while its implementation is a clean native codebase.
+Dector is a React + Vite messaging client backed by Supabase, packaged for Windows with Electron.
 
-## Current implementation status
+## Local setup
 
-### Backend foundation
-- Dedicated Supabase project: `Dector2` (separate from Message).
-- PostgreSQL schema for profiles, conversations, members, messages, devices and per-device encrypted message-key envelopes.
-- Row Level Security enabled on every application table.
-- Atomic RPC for creating one direct conversation per user pair.
-- Realtime publication for messages and conversation membership.
-- Security Advisor currently reports no findings.
+1. Install Node.js 22.
+2. Copy `.env.example` to `.env.local`.
+3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the Dector2 Supabase project's API settings.
+4. Run `npm install`, then `npm run dev` for the web client.
+5. Run `npm run build` to create the production web bundle.
+6. Run `npm run dist` on Windows to create the NSIS installer in `release/`.
 
-### Desktop client
-- C++20 and Qt 6 Quick application.
-- Supabase email sign-up and password sign-in.
-- Access token in memory; Windows refresh token is stored in Windows Credential Manager and refreshed automatically. macOS/Linux persistent secure storage is not implemented yet.
-- Profile loading and editing.
-- Atomic direct-chat creation and group creation by username, plus conversation list/history loading.
-- Group membership and chat listing are implemented; message sending is intentionally disabled until reviewed E2EE is integrated.
-- Profile editing (display name, username and bio).
+## Implemented
 
-### Not yet implemented
-- End-to-end encryption protocol, identity verification, key rotation and secure device storage. Database tables for device public keys and per-device key envelopes are only the backend foundation; they do not mean E2EE is active.
-- Decryption and sending of encrypted messages.
-- macOS Keychain/Linux Secret Service integration; persistent login currently works only on Windows.
-- Realtime websocket subscriptions (current conversation loading is request-based polling).
-- Desktop avatar upload/display. A private `avatars` bucket is provisioned (5 MB, JPEG/PNG/WebP, authenticated reads, owner-only writes).
-- Media messages, push notifications, calls, stories and advanced message actions.
-- Signed auto-update and production release signing.
+- Supabase email/password registration and login with persistent sessions and automatic token refresh.
+- Editable user profiles and username search.
+- Direct conversations, encrypted message payloads and realtime updates.
+- Per-device P-256 ECDH keys stored in IndexedDB; random AES-256-GCM key per message; encrypted message keys for each active participant device.
+- Windows Electron wrapper with NSIS installer and GitHub-release update checks. Downloaded updates prompt to restart only Dector, not Windows.
 
-Do not describe Dector as end-to-end encrypted until a reviewed protocol and its full key lifecycle are implemented and tested. TLS protects transport; it is not E2EE.
+## Security notes
 
-## Technology direction
+The current E2EE implementation is an initial device-key design, not a Signal-style ratchet. It does not yet provide forward secrecy, key transparency, secure key backup/recovery, or independent cryptographic audit. Private device keys stay in browser IndexedDB and are not synchronized, so a newly added device cannot decrypt old messages. Treat this as an early implementation until those properties are completed and reviewed.
 
-- **Desktop:** C++20 + Qt 6 (Qt Quick/QML, Qt Network).
-- **Shared core:** C++20 libraries for domain models, protocol/client logic, cryptographic adapters and synchronization.
-- **Android:** Kotlin UI with shared C++ core through JNI where justified.
-- **iOS:** Swift/SwiftUI UI with shared C++ core through a narrow, audited bridge where justified.
-- **Backend:** Dector-owned Supabase project and migrations.
+Only a Supabase publishable key belongs in the frontend. Never put a service-role or secret key in `.env.local`.
 
-## Configuration
+## Build and release
 
-The desktop client currently uses the Dector2 Supabase project URL and its public publishable API key. These are client-side identifiers, not service-role secrets. They can be overridden with:
-
-- `DECTOR_SUPABASE_URL`
-- `DECTOR_SUPABASE_PUBLISHABLE_KEY`
-
-Never put a Supabase service-role key, database password, signing key or private encryption key in the client or Git.
-
-## Build
-
-Requires Qt 6.8.3 with Qt Quick/QML and CMake 3.24+.
-
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-```
-
-Windows CI builds a native installer using Inno Setup and publishes it as a workflow artifact after a successful build.
-
-## Engineering rules
-
-1. Audit Message's current implementation and backend contract before porting each feature.
-2. Keep Dector independent: separate app identifiers, signing keys, release channels, database namespace and update feed.
-3. Never commit credentials, signing keys, private tokens or production secrets.
-4. Use established cryptographic protocols and libraries; do not invent encryption primitives.
-5. Do not claim E2EE until key verification, device lifecycle, backups, multi-device behavior and security tests are implemented and reviewed.
-6. Add automated tests and CI checks for each vertical slice.
-7. Updates must be app-only. Never ask ordinary users to reboot the entire PC as a routine update step.
-
-See `docs/architecture.md` and `docs/backend-client.md`.
+Pushing to `main` runs a Windows installer build and uploads the EXE as a GitHub Actions artifact. Pushing a version tag such as `v0.1.0` publishes a GitHub release with the installer and update metadata. Electron auto-update checks published releases.
