@@ -110,3 +110,79 @@ input, textarea {
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Additional interaction animations */
+.chatitem {
+  animation: list-item-in 300ms var(--motion-ease) both;
+}
+.chatitem:nth-of-type(1) { animation-delay: 20ms; }
+.chatitem:nth-of-type(2) { animation-delay: 40ms; }
+.chatitem:nth-of-type(3) { animation-delay: 60ms; }
+.chatitem:nth-of-type(4) { animation-delay: 80ms; }
+.chatitem:nth-of-type(5) { animation-delay: 100ms; }
+.chatitem:nth-of-type(n+6) { animation-delay: 120ms; }
+.person {
+  animation: list-item-in 240ms var(--motion-ease) both;
+}
+.person:nth-of-type(2) { animation-delay: 25ms; }
+.person:nth-of-type(3) { animation-delay: 50ms; }
+.person:nth-of-type(4) { animation-delay: 75ms; }
+.person:nth-of-type(n+5) { animation-delay: 100ms; }
+.bubble:hover {
+  filter: brightness(1.045);
+}
+.send svg {
+  transition: transform 220ms var(--motion-ease);
+}
+.send:hover:not(:disabled) svg {
+  transform: translate(2px, -2px);
+}
+.rail button:active:not(:disabled), .icon:active:not(:disabled) {
+  scale: .92;
+}
+.chatitem:active:not(:disabled), .person:active:not(:disabled) {
+  scale: .985;
+}
+.convhead {
+  animation: header-in 280ms var(--motion-ease) both;
+}
+.composer {
+  animation: composer-in 300ms var(--motion-ease) both;
+}
+.toast {
+  animation: toast-in 260ms var(--motion-ease) both;
+}
+.modal > label, .modal > .profileicon, .modal > .search, .modal > .person, .modal > .primary {
+  animation: list-item-in 260ms var(--motion-ease) both;
+}
+.modal > :nth-child(2) { animation-delay: 25ms; }
+.modal > :nth-child(3) { animation-delay: 50ms; }
+.modal > :nth-child(4) { animation-delay: 75ms; }
+.modal > :nth-child(5) { animation-delay: 100ms; }
+.modal > :nth-child(6) { animation-delay: 125ms; }
+@keyframes list-item-in {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes header-in {
+  from { opacity: 0; translate: 0 -5px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes composer-in {
+  from { opacity: 0; translate: 0 9px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes toast-in {
+  from { opacity: 0; translate: -50% 10px; }
+  to { opacity: 1; translate: -50% 0; }
+}
+@media (max-width: 720px) {
+  .layout:has(.chatitem.active) .conversation {
+    animation: mobile-chat-in 300ms var(--motion-ease) both;
+  }
+  @keyframes mobile-chat-in {
+    from { opacity: .7; translate: 18px 0; }
+    to { opacity: 1; translate: 0 0; }
+  }
+}
