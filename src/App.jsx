@@ -2,32 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, isConfigured } from './lib/supabase'
 import { ensureDevice, encryptMessage, decryptMessage } from './lib/crypto'
 
-const iconPaths = {
-  Search: <><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.2 4.2"/></>,
-  Send: <><path d="m21 3-7.2 18-3.8-7.8L2 9.4 21 3Z"/><path d="M10 13.2 21 3"/></>,
-  LogOut: <><path d="M10 4H5.8A1.8 1.8 0 0 0 4 5.8v12.4A1.8 1.8 0 0 0 5.8 20H10"/><path d="M14 8l4 4-4 4M18 12H9"/></>,
-  MessageCircle: <><path d="M20 11.2a7.8 7.8 0 0 1-8.1 7.8 8.7 8.7 0 0 1-3.5-.8L4 20l1.4-4A7.4 7.4 0 0 1 4 11.2 7.8 7.8 0 0 1 12 3.5a7.8 7.8 0 0 1 8 7.7Z"/><path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01"/></>,
-  UserRound: <><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></>,
-  Plus: <><path d="M12 5v14M5 12h14"/></>,
-  ShieldCheck: <><path d="M12 3 19 6v5.2c0 4.4-2.8 7.8-7 9.8-4.2-2-7-5.4-7-9.8V6l7-3Z"/><path d="m8.7 12 2.2 2.2 4.5-4.6"/></>,
-  Settings: <><circle cx="12" cy="12" r="3"/><path d="m19.4 13.5 1.1.9-1.8 3.1-1.4-.5a7.7 7.7 0 0 1-1.7 1l-.2 1.5h-3.6l-.2-1.5a7.7 7.7 0 0 1-1.7-1l-1.4.5-1.8-3.1 1.1-.9a7.2 7.2 0 0 1 0-2l-1.1-.9 1.8-3.1 1.4.5a7.7 7.7 0 0 1 1.7-1l.2-1.5h3.6l.2 1.5a7.7 7.7 0 0 1 1.7 1l1.4-.5 1.8 3.1-1.1.9a7.2 7.2 0 0 1 0 2Z"/></>,
-  X: <><path d="m6 6 12 12M18 6 6 18"/></>,
-  LoaderCircle: <><path d="M20 12a8 8 0 1 1-8-8"/></>
-};
-function Glyph({ name, size = 20, className }) {
-  return <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{iconPaths[name]}</svg>;
-}
-const Search = props => <Glyph name="Search" {...props}/>;
-const Send = props => <Glyph name="Send" {...props}/>;
-const LogOut = props => <Glyph name="LogOut" {...props}/>;
-const MessageCircle = props => <Glyph name="MessageCircle" {...props}/>;
-const UserRound = props => <Glyph name="UserRound" {...props}/>;
-const Plus = props => <Glyph name="Plus" {...props}/>;
-const ShieldCheck = props => <Glyph name="ShieldCheck" {...props}/>;
-const Settings = props => <Glyph name="Settings" {...props}/>;
-const X = props => <Glyph name="X" {...props}/>;
-const LoaderCircle = props => <Glyph name="LoaderCircle" {...props}/>;
-
+import { Search, Send, LogOut, MessageCircle, UserRound, Plus, ShieldCheck, Settings, X, LoaderCircle } from 'lucide-react'
 
 const initial = (s = '?') => s.trim().slice(0, 1).toUpperCase()
 const errText = e => e?.message || 'Не удалось выполнить действие.'
