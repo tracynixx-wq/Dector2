@@ -44,11 +44,13 @@ ApplicationWindow {
         }
     }
 
-    component Surface: Rectangle {
-        color: "#111722"
-        radius: 18
-        border.color: "#202a3a"
-        border.width: 1
+    component Surface: Pane {
+        background: Rectangle {
+            color: "#111722"
+            radius: 18
+            border.color: "#202a3a"
+            border.width: 1
+        }
     }
 
     component Field: TextField {
@@ -350,7 +352,6 @@ ApplicationWindow {
                                 radius: 14
                                 color: "#151f2e"
                                 border.color: "#26334a"
-                                anchors.horizontalCenter: parent ? undefined : undefined
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 14
