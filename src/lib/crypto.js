@@ -33,11 +33,16 @@ const decode = (value) => Uint8Array.from(atob(value), c => c.charCodeAt(0))
 const exportPublic = (key) => crypto.subtle.exportKey('jwk', key)
 
 export async function ensureDevice(supabase, user) {
-  let pair = await readLocal('identity')
-  let deviceId = await readLocal('deviceId')
+  const identitySlot = 'identity:' + user.id
+  const deviceSlot = 'deviceId:' + user.id
+  let pair = await readLocal(identitySlot)
+  let deviceId = await readLocal(deviceSlot)
   if (!pair) {
+    if (deviceId) {
+      await supabase.from('user_devices').update({ revoked_at: new Date().toISOString() }).eq('id', deviceId)
+    }
     pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey'])
-    await writeLocal('identity', pair)
+    await writeLocal(identitySlot, pair)
     deviceId = null
   }
   if (!deviceId) {
@@ -49,7 +54,7 @@ export async function ensureDevice(supabase, user) {
     }).select('id').single()
     if (error) throw error
     deviceId = data.id
-    await writeLocal('deviceId', deviceId)
+    await writeLocal(deviceSlot, deviceId)
   }
   return { pair, deviceId }
 }
@@ -62,7 +67,9 @@ export async function encryptMessage(supabase, text, conversationId, senderId, d
   const { data: devices, error: devicesError } = await supabase.from('user_devices')
     .select('id,user_id,identity_key_public').in('user_id', memberIds).is('revoked_at', null)
   if (devicesError) throw devicesError
-  if (!devices?.length) throw new Error('У участников пока нет зарегистрированных устройств.')
+  if (!devices?.length || memberIds.some(id => !devices.some(device => device.user_id === id))) {
+    throw new Error('Каждый участник должен хотя бы один раз войти в Dector с устройства, чтобы получить ключ шифрования.')
+  }
 
   const messageKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt'])
   const nonce = crypto.getRandomValues(new Uint8Array(12))
@@ -108,7 +115,10 @@ export async function encryptMessage(supabase, text, conversationId, senderId, d
   const { error: envelopeError } = await supabase.from('message_key_envelopes').insert(
     envelopes.map(e => ({ ...e, message_id: message.id }))
   )
-  if (envelopeError) throw envelopeError
+  if (envelopeError) {
+    await supabase.from('messages').delete().eq('id', message.id)
+    throw envelopeError
+  }
   return message
 }
 
