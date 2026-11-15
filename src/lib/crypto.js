@@ -32,7 +32,17 @@ const encode = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer)))
 const decode = (value) => Uint8Array.from(atob(value), c => c.charCodeAt(0))
 const exportPublic = (key) => crypto.subtle.exportKey('jwk', key)
 
-const deviceInitPromises = new Map()\n\nexport function ensureDevice(supabase, user) {\n  if (!deviceInitPromises.has(user.id)) {\n    const task = initializeDevice(supabase, user).finally(() => deviceInitPromises.delete(user.id))\n    deviceInitPromises.set(user.id, task)\n  }\n  return deviceInitPromises.get(user.id)\n}\n\nasync function initializeDevice(supabase, user) {
+const deviceInitPromises = new Map()
+
+export function ensureDevice(supabase, user) {
+  if (!deviceInitPromises.has(user.id)) {
+    const task = initializeDevice(supabase, user).finally(() => deviceInitPromises.delete(user.id))
+    deviceInitPromises.set(user.id, task)
+  }
+  return deviceInitPromises.get(user.id)
+}
+
+async function initializeDevice(supabase, user) {
   const identitySlot = 'identity:' + user.id
   const deviceSlot = 'deviceId:' + user.id
   let pair = await readLocal(identitySlot)
