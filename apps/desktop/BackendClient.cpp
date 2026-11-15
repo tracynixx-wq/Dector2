@@ -8,6 +8,12 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <string>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <wincred.h>
+#endif
 
 namespace {
 const QString kProjectUrl = QStringLiteral("https://ruxkffkijhlihcbbpiar.supabase.co");
@@ -20,6 +26,11 @@ BackendClient::BackendClient(QObject *parent)
       m_publishableKey(qEnvironmentVariable("DECTOR_SUPABASE_PUBLISHABLE_KEY", kPublishableKey))
 {
     connect(&m_refreshTimer, &QTimer::timeout, this, &BackendClient::refreshAccessToken);
+    m_refreshToken = readStoredRefreshToken();
+    if (!m_refreshToken.isEmpty()) {
+        setStatus(QStringLiteral("Восстанавливаем защищённую сессию…"));
+        refreshAccessToken();
+    }
 }
 
 QString BackendClient::encoded(const QString &value)
@@ -77,7 +88,10 @@ void BackendClient::acceptAuthResponse(const QByteArray &data)
 
     const bool wasAuthenticated = authenticated();
     m_accessToken = access;
-    m_refreshToken = json.value(QStringLiteral("refresh_token")).toString();
+    const QString nextRefreshToken = json.value(QStringLiteral("refresh_token")).toString();
+    if (!nextRefreshToken.isEmpty())
+        m_refreshToken = nextRefreshToken;
+    storeRefreshToken(m_refreshToken);
     const QJsonObject user = json.value(QStringLiteral("user")).toObject();
     m_userId = user.value(QStringLiteral("id")).toString();
     scheduleTokenRefresh(json.value(QStringLiteral("expires_in")).toInt(3600));
@@ -160,6 +174,7 @@ void BackendClient::signOut()
     }
     m_accessToken.clear();
     m_refreshToken.clear();
+    clearStoredRefreshToken();
     m_userId.clear();
     m_username.clear();
     m_displayName.clear();
@@ -335,4 +350,50 @@ void BackendClient::loadMessages(const QString &conversationId)
         emit messagesLoaded(conversationId, result);
         setStatus(QStringLiteral("История загружена. Содержимое пока зашифровано."));
     });
+}
+
+QString BackendClient::readStoredRefreshToken() const
+{
+#ifdef Q_OS_WIN
+    const std::wstring target = L"Dector2/SupabaseSession";
+    PCREDENTIALW credential = nullptr;
+    if (!CredReadW(target.c_str(), CRED_TYPE_GENERIC, 0, &credential))
+        return {};
+    const QString token = QString::fromUtf8(
+        reinterpret_cast<const char *>(credential->CredentialBlob),
+        static_cast<qsizetype>(credential->CredentialBlobSize));
+    CredFree(credential);
+    return token;
+#else
+    return {};
+#endif
+}
+
+void BackendClient::storeRefreshToken(const QString &token) const
+{
+#ifdef Q_OS_WIN
+    if (token.isEmpty())
+        return;
+    const std::wstring target = L"Dector2/SupabaseSession";
+    const QByteArray bytes = token.toUtf8();
+    CREDENTIALW credential{};
+    credential.Type = CRED_TYPE_GENERIC;
+    credential.TargetName = const_cast<LPWSTR>(target.c_str());
+    credential.CredentialBlobSize = static_cast<DWORD>(bytes.size());
+    credential.CredentialBlob = reinterpret_cast<LPBYTE>(
+        const_cast<char *>(bytes.constData()));
+    credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
+    credential.UserName = const_cast<LPWSTR>(L"Dector");
+    CredWriteW(&credential, 0);
+#else
+    Q_UNUSED(token);
+#endif
+}
+
+void BackendClient::clearStoredRefreshToken() const
+{
+#ifdef Q_OS_WIN
+    const std::wstring target = L"Dector2/SupabaseSession";
+    CredDeleteW(target.c_str(), CRED_TYPE_GENERIC, 0);
+#endif
 }
