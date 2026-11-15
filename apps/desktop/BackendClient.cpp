@@ -390,7 +390,7 @@ void BackendClient::loadMessages(const QString &conversationId)
     if (!authenticated() || conversationId.isEmpty())
         return;
     const QString path = QStringLiteral("/rest/v1/messages?select=id,sender_id,ciphertext,nonce,content_type,created_at,encryption_version,reply_to&conversation_id=eq.")
-                         + encoded(conversationId) + QStringLiteral("&order=created_at.asc&limit=100");
+                         + encoded(conversationId) + QStringLiteral("&order=created_at.desc&limit=100");
     request("GET", path, {}, true,
             [this, conversationId](int code, const QByteArray &data, const QString &error) {
         if (code < 200 || code >= 300) {
@@ -399,8 +399,9 @@ void BackendClient::loadMessages(const QString &conversationId)
         }
         QVariantList result;
         const QJsonArray rows = QJsonDocument::fromJson(data).array();
-        for (const QJsonValue &value : rows) {
-            const QJsonObject message = value.toObject();
+        // Fetch the newest page from the server, then reverse it for chronological display.
+        for (qsizetype i = rows.size() - 1; i >= 0; --i) {
+            const QJsonObject message = rows.at(i).toObject();
             result.append(QVariantMap{
                 {QStringLiteral("id"), message.value(QStringLiteral("id")).toString()},
                 {QStringLiteral("senderId"), message.value(QStringLiteral("sender_id")).toString()},
