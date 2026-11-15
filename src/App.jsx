@@ -29,7 +29,25 @@ export default function App() {
       .select('conversation_id, conversations(id, kind, title, updated_at)')
       .eq('user_id', session.user.id)
     if (error) throw error
-    const rows = (data || []).map(x => x.conversations).filter(Boolean).sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at))
+    let rows = (data || []).map(x => x.conversations).filter(Boolean)
+    if (rows.length) {
+      const ids = rows.map(c => c.id)
+      const { data: members, error: memberError } = await supabase.from('conversation_members')
+        .select('conversation_id,user_id').in('conversation_id', ids).neq('user_id', session.user.id)
+      if (memberError) throw memberError
+      const userIds = [...new Set((members || []).map(m => m.user_id))]
+      const { data: people, error: peopleError } = userIds.length
+        ? await supabase.from('profiles').select('id,username,display_name').in('id', userIds)
+        : { data: [], error: null }
+      if (peopleError) throw peopleError
+      rows = rows.map(c => {
+        if (c.kind === 'group' || c.title) return c
+        const other = (members || []).find(m => m.conversation_id === c.id)
+        const person = (people || []).find(p => p.id === other?.user_id)
+        return { ...c, title: person?.display_name || person?.username || 'Личный чат' }
+      })
+    }
+    rows.sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at))
     setChats(rows)
     if (!active && rows.length) setActive(rows[0].id)
   }, [session, active])
