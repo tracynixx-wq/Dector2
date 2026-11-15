@@ -17,7 +17,7 @@ The desktop application talks only to the dedicated Dector2 Supabase project. Th
 
 ## Session storage
 
-Access and refresh tokens currently remain in process memory. They are not written to QSettings, files, logs or the repository. Closing the app requires signing in again. Persistent login must be added with an OS-backed credential vault (Windows Credential Manager, macOS Keychain and Linux Secret Service) before it is enabled.
+The access token remains in process memory. On Windows, the refresh token is stored in Windows Credential Manager and restored at startup; it is deleted on explicit sign-out. Temporary network failures do not erase the saved session. On macOS and Linux, the current build keeps tokens in memory only and requires signing in again after closing the app. macOS Keychain and Linux Secret Service integration remain future work.
 
 ## Message encryption boundary
 
