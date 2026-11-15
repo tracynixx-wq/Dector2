@@ -73,9 +73,13 @@ export default function App() {
   useEffect(() => {
     if (!session || !active || !device) return
     loadMessages().catch(e => setNotice(errText(e)))
-    const ch = supabase.channel('dector-' + active).on('postgres_changes',
-      { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
-      () => loadMessages().catch(e => setNotice(errText(e)))).subscribe()
+    const ch = supabase.channel('dector-' + active)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
+        () => loadMessages().catch(e => setNotice(errText(e))))
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'message_key_envelopes', filter: 'recipient_device_id=eq.' + device.deviceId },
+        () => loadMessages().catch(e => setNotice(errText(e)))).subscribe()
     return () => { supabase.removeChannel(ch) }
   }, [session, active, device, loadMessages])
 
