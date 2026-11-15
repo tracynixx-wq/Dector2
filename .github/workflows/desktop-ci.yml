@@ -1,5 +1,9 @@
 name: Dector Desktop CI
 
+concurrency:
+  group: dector-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
