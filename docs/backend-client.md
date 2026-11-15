@@ -29,5 +29,5 @@ The database stores ciphertext and nonce fields. The current client does not yet
 - Conversation and history loads currently use REST requests, not realtime websocket subscriptions.
 - Conversation history is capped at 100 records; cursor pagination is still required.
 - The current UI shows encrypted placeholders because decryption is not implemented.
-- Profile avatars are not yet uploaded; only the database path field exists.
+- A private `avatars` Storage bucket is provisioned with a 5 MB limit and JPEG/PNG/WebP MIME allowlist; authenticated users can read avatars and only write to their own uid-prefixed folder. The desktop upload and signed-URL UI is not yet implemented.
 - Email confirmation behavior depends on the Supabase Auth project settings.
