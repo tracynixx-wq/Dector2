@@ -235,3 +235,22 @@ input, textarea {
 }
 .profile-banner:has(img) span { opacity:0; transition:opacity .18s ease; }
 .profile-banner:has(img):hover span { opacity:1; }
+
+
+/* Mobile conversation navigation */
+.back-to-chats {
+  display: none;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  color: #c8c9d0;
+  background: #25262d;
+}
+.back-to-chats svg { width: 19px; height: 19px; }
+@media (max-width: 720px) {
+  .back-to-chats { display: flex; }
+  .convhead { gap: 9px; padding: 0 12px; }
+}
