@@ -286,6 +286,20 @@ ApplicationWindow {
                             enabled: !backend.busy
                             onClicked: backend.createDirectConversation(searchUsername.text)
                         }
+                        Button {
+                            Layout.fillWidth: true
+                            implicitHeight: 42
+                            text: qsTr("Создать группу")
+                            onClicked: groupDialog.open()
+                            contentItem: Text {
+                                text: parent.text
+                                color: "#c4d0eb"
+                                font.pixelSize: 13
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle { color: "#182235"; radius: 12 }
+                        }
                         RowLayout {
                             Layout.fillWidth: true
                             SectionLabel { text: qsTr("ТВОИ ЧАТЫ") }
@@ -420,6 +434,43 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+    }
+
+    Dialog {
+        id: groupDialog
+        modal: true
+        anchors.centerIn: parent
+        width: 440
+        title: qsTr("Новая группа")
+        standardButtons: Dialog.NoButton
+        background: Surface {}
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+            SectionLabel { text: qsTr("НАЗВАНИЕ ГРУППЫ") }
+            Field { id: groupTitle; Layout.fillWidth: true; placeholderText: qsTr("Например, Команда") }
+            SectionLabel { text: qsTr("USERNAME УЧАСТНИКОВ") }
+            Field { id: groupMembers; Layout.fillWidth: true; placeholderText: qsTr("user_one, user_two") }
+            Label {
+                Layout.fillWidth: true
+                text: qsTr("Перечисли username через запятую. Ты автоматически станешь владельцем группы.")
+                color: "#8492a8"
+                wrapMode: Text.WordWrap
+                font.pixelSize: 11
+            }
+            PrimaryButton {
+                Layout.fillWidth: true
+                text: qsTr("Создать группу")
+                enabled: !backend.busy
+                onClicked: {
+                    backend.createGroupConversation(groupTitle.text, groupMembers.text)
+                    groupDialog.close()
+                    groupTitle.clear()
+                    groupMembers.clear()
+                }
+            }
+            Label { Layout.fillWidth: true; text: backend.status; color: "#8998ae"; wrapMode: Text.WordWrap; font.pixelSize: 11 }
         }
     }
 
