@@ -98,18 +98,52 @@ export default function App() {
     setMessages(decoded)
   }, [active, device])
 
+  const upsertRealtimeMessage = useCallback(async (messageId, envelope) => {
+    const { data: message, error } = await supabase.from('messages')
+      .select('id,sender_id,ciphertext,nonce,encryption_version,content_type,created_at,deleted_at,conversation_id')
+      .eq('id', messageId).eq('conversation_id', active).maybeSingle()
+    if (error) throw error
+    if (!message || message.deleted_at) {
+      setMessages(current => current.filter(item => item.id !== messageId))
+      return
+    }
+    let text
+    try {
+      text = message.encryption_version !== 1
+        ? '[Неподдерживаемая версия шифрования]'
+        : await decryptMessage(supabase, message, device.deviceId, device.pair.privateKey, envelope)
+    } catch {
+      text = '[Не удалось расшифровать на этом устройстве]'
+    }
+    const decoded = { ...message, text }
+    setMessages(current => {
+      const next = current.filter(item => item.id !== messageId)
+      next.push(decoded)
+      next.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      return next
+    })
+  }, [active, device])
+
   useEffect(() => {
     if (!session || !active || !device) return
     loadMessages().catch(e => setNotice(errText(e)))
     const ch = supabase.channel('dector-' + active)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
+        () => loadMessages().catch(e => setNotice(errText(e))))
+      .on('postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + active },
         () => loadMessages().catch(e => setNotice(errText(e))))
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'message_key_envelopes', filter: 'recipient_device_id=eq.' + device.deviceId },
-        () => loadMessages().catch(e => setNotice(errText(e)))).subscribe()
+        payload => {
+          if (payload.new?.message_id) {
+            upsertRealtimeMessage(payload.new.message_id, payload.new)
+              .catch(e => setNotice(errText(e)))
+          }
+        }).subscribe()
     return () => { supabase.removeChannel(ch) }
-  }, [session, active, device, loadMessages])
+  }, [session, active, device, loadMessages, upsertRealtimeMessage])
 
   async function authSubmit(e) {
     e.preventDefault(); setBusy(true); setNotice('')
