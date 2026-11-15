@@ -1,0 +1,29 @@
+# Build output
+/build/
+/cmake-build-*/
+/out/
+/dist/
+/*.user
+CMakeUserPresets.json
+
+# IDE
+.vscode/
+.idea/
+
+# Qt
+.qt/
+*.qmlc
+*.jsc
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS
+.DS_Store
+Thumbs.db
