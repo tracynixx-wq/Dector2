@@ -240,7 +240,7 @@ void BackendClient::loadConversations()
 {
     if (!authenticated() || m_userId.isEmpty())
         return;
-    const QString path = QStringLiteral("/rest/v1/conversation_members?select=conversation_id,role,conversations(id,kind,title,updated_at)&user_id=eq.")
+    const QString path = QStringLiteral("/rest/v1/conversation_members?select=conversation_id,role,conversations(id,kind,title,updated_at,conversation_members(user_id,profiles(username,display_name)))&user_id=eq.")
                          + encoded(m_userId) + QStringLiteral("&order=joined_at.desc");
     request("GET", path, {}, true,
             [this](int code, const QByteArray &data, const QString &error) {
@@ -255,10 +255,24 @@ void BackendClient::loadConversations()
             const QJsonObject conversation = row.value(QStringLiteral("conversations")).toObject();
             if (conversation.isEmpty())
                 continue;
+            QString peerName;
+            const QJsonArray members = conversation.value(QStringLiteral("conversation_members")).toArray();
+            for (const QJsonValue &memberValue : members) {
+                const QJsonObject member = memberValue.toObject();
+                if (member.value(QStringLiteral("user_id")).toString() == m_userId)
+                    continue;
+                const QJsonObject profile = member.value(QStringLiteral("profiles")).toObject();
+                peerName = profile.value(QStringLiteral("display_name")).toString();
+                if (peerName.isEmpty())
+                    peerName = profile.value(QStringLiteral("username")).toString();
+                if (!peerName.isEmpty())
+                    break;
+            }
             result.append(QVariantMap{
                 {QStringLiteral("id"), conversation.value(QStringLiteral("id")).toString()},
                 {QStringLiteral("kind"), conversation.value(QStringLiteral("kind")).toString()},
                 {QStringLiteral("title"), conversation.value(QStringLiteral("title")).toString()},
+                {QStringLiteral("peerName"), peerName},
                 {QStringLiteral("role"), row.value(QStringLiteral("role")).toString()}
             });
         }
