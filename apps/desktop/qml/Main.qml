@@ -147,6 +147,21 @@ ApplicationWindow {
                 }
                 Button {
                     Layout.fillWidth: true
+                    implicitHeight: 40
+                    text: qsTr("Забыли пароль?")
+                    enabled: !backend.busy
+                    onClicked: backend.sendPasswordReset(emailField.text)
+                    contentItem: Text {
+                        text: parent.text
+                        color: "#8f9fc0"
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    background: Rectangle { color: "transparent" }
+                }
+                Button {
+                    Layout.fillWidth: true
                     implicitHeight: 44
                     text: qsTr("Создать аккаунт")
                     enabled: !backend.busy
