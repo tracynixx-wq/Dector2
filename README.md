@@ -2,6 +2,10 @@
 
 Dector is a React + Vite messaging client backed by Supabase, packaged for Windows with Electron.
 
+## iPhone testing (PWA)
+
+The same React client includes an iPhone-friendly web app layout and a web app manifest. Serve the production build over HTTPS, open it in Safari on iPhone, then use Share → Add to Home Screen. This is an installable web app, not a native App Store build. Supabase must be configured with the same public client settings; never expose a service-role key.
+
 ## Local setup
 
 1. Install Node.js 22.
