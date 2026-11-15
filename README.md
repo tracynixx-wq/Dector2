@@ -27,4 +27,4 @@ Only a Supabase publishable key belongs in the frontend. Never put a service-rol
 
 ## Build and release
 
-Pushing to `main` runs a Windows installer build and uploads the EXE as a GitHub Actions artifact. Pushing a version tag such as `v0.1.0` publishes a GitHub release with the installer and update metadata. Electron auto-update checks published releases.
+Pushing to `main` runs a Windows installer build and uploads the EXE as a GitHub Actions artifact. Pushing a version tag such as `v0.1.0` publishes a GitHub release with the installer and update metadata. The repository is currently private: GitHub release downloads and the built-in updater are therefore limited to users who have repository access. Before distributing Dector broadly, move the update feed to a public release host or explicitly make releases publicly accessible; do not embed a private GitHub token in the app.
