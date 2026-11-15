@@ -24,6 +24,22 @@ jobs:
         run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
       - name: Build
         run: cmake --build build --config Release --parallel
+      - name: Deploy Qt runtime and QML modules
+        shell: pwsh
+        run: windeployqt --qmldir apps/desktop/qml --no-translations build/Release/dector-desktop.exe
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=0.1.0 installer/dector.iss
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dector-Windows-Installer
+          path: dist/Dector-Setup.exe
+          if-no-files-found: error
 
   build-linux:
     runs-on: ubuntu-latest
@@ -36,7 +52,6 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: 'qtdeclarative'
           cache: true
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
