@@ -15,17 +15,19 @@ Dector is an independent cross-platform messenger. Its product behavior is infor
 ### Desktop client
 - C++20 and Qt 6 Quick application.
 - Supabase email sign-up and password sign-in.
-- In-memory access/refresh token handling with refresh while the app remains open.
+- Access token in memory; Windows refresh token is stored in Windows Credential Manager and refreshed automatically. macOS/Linux persistent secure storage is not implemented yet.
 - Profile loading and editing.
-- Direct-chat creation by username, group creation by usernames and conversation list/history loading.
-- Message payloads are displayed as encrypted placeholders; the UI intentionally does not send plaintext.
+- Atomic direct-chat creation and group creation by username, plus conversation list/history loading.
+- Group membership and chat listing are implemented; message sending is intentionally disabled until reviewed E2EE is integrated.
+- Profile editing (display name, username and bio).
 
 ### Not yet implemented
-- End-to-end encryption protocol, identity verification, key rotation and secure device storage.
+- End-to-end encryption protocol, identity verification, key rotation and secure device storage. Database tables for device public keys and per-device key envelopes are only the backend foundation; they do not mean E2EE is active.
 - Decryption and sending of encrypted messages.
-- Secure persistent login across app restarts.
-- Realtime websocket subscriptions (current conversation loading is request-based).
-- Avatar/media upload, push notifications, calls, stories, groups and advanced message actions.
+- macOS Keychain/Linux Secret Service integration; persistent login currently works only on Windows.
+- Realtime websocket subscriptions (current conversation loading is request-based polling).
+- Desktop avatar upload/display. A private `avatars` bucket is provisioned (5 MB, JPEG/PNG/WebP, authenticated reads, owner-only writes).
+- Media messages, push notifications, calls, stories and advanced message actions.
 - Signed auto-update and production release signing.
 
 Do not describe Dector as end-to-end encrypted until a reviewed protocol and its full key lifecycle are implemented and tested. TLS protects transport; it is not E2EE.
