@@ -9,7 +9,7 @@ const errText = e => e?.message || 'Не удалось выполнить де�
 export default function App() {
   const [session, setSession] = useState(null), [boot, setBoot] = useState(true)
   const [mode, setMode] = useState('login'), [email, setEmail] = useState(''), [password, setPassword] = useState('')
-  const [profile, setProfile] = useState(null), [username, setUsername] = useState(''), [displayName, setDisplayName] = useState(''), [bio, setBio] = useState('')
+  const [profile, setProfile] = useState(null), [username, setUsername] = useState(''), [displayName, setDisplayName] = useState(''), [bio, setBio] = useState(''), [avatarFile, setAvatarFile] = useState(null)
   const [device, setDevice] = useState(null), [chats, setChats] = useState([]), [active, setActive] = useState(null), [messages, setMessages] = useState([])
   const [query, setQuery] = useState(''), [people, setPeople] = useState([]), [draft, setDraft] = useState('')
   const [peopleOpen, setPeopleOpen] = useState(false), [profileOpen, setProfileOpen] = useState(false)
@@ -157,16 +157,27 @@ export default function App() {
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
-  async function saveProfile(e) {
+  const avatarUrl = path => path ? supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl : ''\n\n  async function saveProfile(e) {
     e.preventDefault(); setBusy(true); setNotice('')
     try {
       const clean = username.trim().toLowerCase()
       if (!/^[a-zA-Z0-9_]{3,32}$/.test(clean)) throw new Error('Юзернейм: 3–32 символа, латиница, цифры и _.')
+      let avatar_path = profile?.avatar_path || null
+      if (avatarFile) {
+        if (!['image/jpeg','image/png','image/webp'].includes(avatarFile.type)) throw new Error('Поддерживаются JPG, PNG и WebP.')
+        if (avatarFile.size > 3 * 1024 * 1024) throw new Error('Размер фотографии не должен превышать 3 МБ.')
+        const extension = avatarFile.type.split('/')[1].replace('jpeg','jpg')
+        const newPath = session.user.id + '/' + crypto.randomUUID() + '.' + extension
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(newPath, avatarFile, { contentType: avatarFile.type, upsert: false })
+        if (uploadError) throw uploadError
+        avatar_path = newPath
+      }
       const { data, error } = await supabase.from('profiles').update({
-        username: clean, display_name: displayName.trim(), bio, updated_at: new Date().toISOString()
+        username: clean, display_name: displayName.trim(), bio, avatar_path, updated_at: new Date().toISOString()
       }).eq('id', session.user.id).select().single()
       if (error) throw error
-      setProfile(data); setProfileOpen(false); setNotice('Профиль сохранён.')
+      if (avatarFile && profile?.avatar_path) await supabase.storage.from('avatars').remove([profile.avatar_path])
+      setProfile(data); setAvatarFile(null); setProfileOpen(false); setNotice('Профиль сохранён.')
     } catch(e) { setNotice(errText(e)) } finally { setBusy(false) }
   }
 
@@ -184,7 +195,7 @@ export default function App() {
     </aside>
     <section className="conversation">{selected?<><header className="convhead"><div className="avatar">{initial(selected.title||'D')}</div><div><b>{selected.title||'Личный чат'}</b><small>Сквозное шифрование · AES‑GCM / ECDH</small></div><ShieldCheck className="shield"/></header><div className="messages">{messages.map(m=><div key={m.id} className={'line '+(m.sender_id===session.user.id?'mine':'')}><div className="bubble">{m.text}<time>{new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time></div></div>)}{!messages.length&&<div className="empty"><MessageCircle/><b>Начните общение</b><small>Сообщения шифруются на устройстве перед отправкой.</small></div>}</div><form className="composer" onSubmit={send}><input value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Написать сообщение…"/><button className="send" disabled={busy||!draft.trim()}><Send/></button></form></>:<div className="empty"><MessageCircle/><h2>Dector</h2><small>Выбери диалог или найди пользователя.</small></div>}</section>
     {peopleOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setPeopleOpen(false)}><section className="modal"><header><h3>Новый диалог</h3><button className="icon" onClick={()=>setPeopleOpen(false)}><X/></button></header><div className="search"><Search/><input autoFocus value={query} onChange={e=>searchPeople(e.target.value)} placeholder="Поиск по юзернейму"/></div>{people.map(p=><button className="person" key={p.id} onClick={()=>createChat(p)}><div className="avatar">{initial(p.display_name||p.username)}</div><div><b>{p.display_name||p.username}</b><small>@{p.username}</small></div><Plus/></button>)}</section></div>}
-    {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profileicon">{initial(displayName||username)}</div><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
+    {profileOpen&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setProfileOpen(false)}><form className="modal" onSubmit={saveProfile}><header><h3>Профиль</h3><button type="button" className="icon" onClick={()=>setProfileOpen(false)}><X/></button></header><div className="profileicon">{profile?.avatar_path ? <img src={avatarUrl(profile.avatar_path)} alt="Аватар профиля"/> : initial(displayName||username)}</div><label>Фото профиля<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setAvatarFile(e.target.files?.[0] || null)}/></label><label>Имя<input value={displayName} onChange={e=>setDisplayName(e.target.value)}/></label><label>Юзернейм<input value={username} onChange={e=>setUsername(e.target.value)}/></label><label>О себе<textarea rows="3" value={bio} onChange={e=>setBio(e.target.value)}/></label><button className="primary" disabled={busy}>Сохранить</button></form></div>}
     {notice&&<button className="toast" onClick={()=>setNotice('')}>{notice}<X size={14}/></button>}
   </main>
 }
